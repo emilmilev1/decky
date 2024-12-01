@@ -8,7 +8,8 @@ CREATE TABLE [dbo].[users] (
     [username] VARCHAR(50) NOT NULL,
     [email] VARCHAR(100) NOT NULL,
     [password] VARCHAR(255) NOT NULL,
-    [role] NVARCHAR(1000) NOT NULL CONSTRAINT [users_role_df] DEFAULT 'USER',
+    [role] VARCHAR(20) NOT NULL CONSTRAINT [users_role_df] DEFAULT 'USER',
+    [createdAt] DATETIME2 NOT NULL CONSTRAINT [users_createdAt_df] DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT [users_pkey] PRIMARY KEY CLUSTERED ([id]),
     CONSTRAINT [users_username_key] UNIQUE NONCLUSTERED ([username]),
     CONSTRAINT [users_email_key] UNIQUE NONCLUSTERED ([email])
@@ -22,13 +23,19 @@ CREATE TABLE [dbo].[decks] (
     [createdAt] DATETIME2 NOT NULL CONSTRAINT [decks_createdAt_df] DEFAULT CURRENT_TIMESTAMP,
     [updatedAt] DATETIME2 NOT NULL,
     [userId] INT NOT NULL,
+    [description] VARCHAR(255) NOT NULL,
+    [isPublic] BIT NOT NULL CONSTRAINT [decks_isPublic_df] DEFAULT 0,
     CONSTRAINT [decks_pkey] PRIMARY KEY CLUSTERED ([id])
 );
 
 -- CreateTable
 CREATE TABLE [dbo].[cards] (
     [id] INT NOT NULL IDENTITY(1,1),
-    [value] NVARCHAR(1000) NOT NULL,
+    [value] VARCHAR(100) NOT NULL,
+    [rarity] VARCHAR(20) NOT NULL,
+    [cost] INT NOT NULL,
+    [power] FLOAT(53) NOT NULL,
+    [createdAt] DATETIME2 NOT NULL CONSTRAINT [cards_createdAt_df] DEFAULT CURRENT_TIMESTAMP,
     [deckId] INT NOT NULL,
     CONSTRAINT [cards_pkey] PRIMARY KEY CLUSTERED ([id])
 );
