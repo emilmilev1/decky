@@ -2,16 +2,31 @@ import axios from "axios";
 
 const API_URL = "http://localhost:4000/decks";
 
-export const getDecks = (token: string) =>
-    axios.get(API_URL, { headers: { Authorization: `Bearer ${token}` } });
-
-export const createDeck = (
-    data: { name: string; cards: string[] },
-    token: string
-) =>
-    axios.post(API_URL, data, {
+export const getDecks = (token: string, query = {}) => {
+    const params = new URLSearchParams(query).toString();
+    return axios.get(`${API_URL}?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
     });
+};
+
+export const getCards = (token: string) =>
+    axios.get(`${API_URL}/cards`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+
+export const createDeck = (
+    name: string,
+    deckDescription: string,
+    cards: string[],
+    token: string
+) =>
+    axios.post(
+        API_URL,
+        { name, deckDescription, cards },
+        {
+            headers: { Authorization: `Bearer ${token}` },
+        }
+    );
 
 export const updateDeck = (
     id: number,
