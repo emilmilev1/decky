@@ -9,10 +9,10 @@ export interface DecodedToken {
  * @param token
  * @returns string | null
  */
-export const decodeToken = (token: string): string | null => {
+export const decodeToken = (token: string): DecodedToken | null => {
     try {
         const decodedToken = jwtDecode<DecodedToken>(token);
-        return decodedToken.username;
+        return decodedToken;
     } catch (error) {
         console.error("Error decoding token:", error);
         return null;

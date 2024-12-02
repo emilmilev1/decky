@@ -1,9 +1,12 @@
 import axios from "axios";
+import { CardData } from "../interface/card";
 
 const API_URL = "http://localhost:4000/decks";
 
 export const getDecks = (token: string, query = {}) => {
-    const params = new URLSearchParams(query).toString();
+    const params = new URLSearchParams(
+        query as Record<string, string>
+    ).toString();
     return axios.get(`${API_URL}?${params}`, {
         headers: { Authorization: `Bearer ${token}` },
     });
@@ -17,7 +20,7 @@ export const getCards = (token: string) =>
 export const createDeck = (
     name: string,
     deckDescription: string,
-    cards: string[],
+    cards: CardData[],
     token: string
 ) =>
     axios.post(

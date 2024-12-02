@@ -5,17 +5,24 @@ import { decodeToken } from "../utils/decode";
 import { getCards, createDeck } from "../api/decks";
 
 type Card = {
-    id: string;
+    id: number;
     name: string;
     iconUrls: { medium: string };
 };
 
+interface User {
+    id: number;
+    username: string;
+    email: string;
+}
+
 const Dashboard = () => {
-    const { token } = useContext(AuthContext);
+    const { token, setUser } = useContext(AuthContext);
     const navigate = useNavigate();
     const [cards, setCards] = useState<Card[]>([]);
     const [filteredCards, setFilteredCards] = useState<Card[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
+    const [searchId, setSearchId] = useState("");
     const [username, setUsername] = useState<string | null>(null);
 
     const [isCreatingDeck, setIsCreatingDeck] = useState(false);
@@ -25,8 +32,15 @@ const Dashboard = () => {
 
     useEffect(() => {
         if (token) {
-            const decodedUsername = decodeToken(token);
-            setUsername(decodedUsername);
+            const decodedToken = decodeToken(token) as User;
+            setUsername(decodedToken?.username || null);
+            if (decodedToken?.email && decodedToken?.id) {
+                setUser({
+                    username: decodedToken.username,
+                    email: decodedToken.email,
+                    id: decodedToken.id,
+                });
+            }
         }
     }, [token]);
 
@@ -37,8 +51,19 @@ const Dashboard = () => {
             try {
                 if (token) {
                     const response = await getCards(token);
-                    setCards(response.data);
-                    setFilteredCards(response.data);
+                    const transformedCards = response.data.map(
+                        (card: {
+                            id: number;
+                            name: string;
+                            iconUrls: string;
+                        }) => ({
+                            ...card,
+                            iconUrls: card.iconUrls,
+                        })
+                    );
+
+                    setCards(transformedCards);
+                    setFilteredCards(transformedCards);
                 }
             } catch (error) {
                 console.error("Error fetching cards:", error);
@@ -48,11 +73,20 @@ const Dashboard = () => {
         fetchCards();
     }, [token]);
 
-    const handleSearch = (query: string) => {
+    const handleSearchByName = (query: string) => {
         setSearchQuery(query);
         setFilteredCards(
             cards.filter((card) =>
                 card.name.toLowerCase().includes(query.toLowerCase())
+            )
+        );
+    };
+
+    const handleSearchById = (query: string) => {
+        setSearchId(query);
+        setFilteredCards(
+            cards.filter((card) =>
+                card.id.toString().toLowerCase().includes(query.toLowerCase())
             )
         );
     };
@@ -86,18 +120,21 @@ const Dashboard = () => {
         }
 
         try {
-            const cards = selectedCards.map((card) => ({
+            const transformedCards = selectedCards.map((card) => ({
                 id: card.id,
                 name: card.name,
-                iconUrl: card.iconUrls.medium,
+                iconUrls: card.iconUrls.medium,
             }));
             const response = await createDeck(
                 deckName,
                 deckDescription,
-                cards,
+                transformedCards,
                 token as string
             );
-            console.log("Deck created successfully:", response);
+            if (response.status !== 201) {
+                throw new Error("Error creating deck.");
+            }
+
             navigate("/decks");
         } catch (error) {
             console.error("Error creating deck:", error);
@@ -118,7 +155,10 @@ const Dashboard = () => {
 
                     {/* Start Creating Deck Button */}
                     {!isCreatingDeck ? (
-                        <button onClick={() => setIsCreatingDeck(true)}>
+                        <button
+                            id="start-creating-deck"
+                            onClick={() => setIsCreatingDeck(true)}
+                        >
                             Start Creating a Deck
                         </button>
                     ) : (
@@ -127,6 +167,7 @@ const Dashboard = () => {
 
                             {/* Deck Name Input */}
                             <input
+                                id="deckName"
                                 type="text"
                                 placeholder="Enter Deck Name"
                                 value={deckName}
@@ -135,6 +176,7 @@ const Dashboard = () => {
 
                             {/* Deck Description */}
                             <input
+                                id="deckDescription"
                                 type="text"
                                 placeholder="Enter Deck Description"
                                 value={deckDescription}
@@ -143,12 +185,26 @@ const Dashboard = () => {
                                 }
                             />
 
-                            {/* Search Bar */}
+                            {/* Search Bar by name */}
                             <input
+                                id="searchQuery"
                                 type="text"
                                 placeholder="Search cards by name..."
                                 value={searchQuery}
-                                onChange={(e) => handleSearch(e.target.value)}
+                                onChange={(e) =>
+                                    handleSearchByName(e.target.value)
+                                }
+                            />
+
+                            {/* Search Bar by id */}
+                            <input
+                                id="searchId"
+                                type="text"
+                                placeholder="Search cards by id..."
+                                value={searchId}
+                                onChange={(e) =>
+                                    handleSearchById(e.target.value)
+                                }
                             />
 
                             {/* Card List - Show cards only when creating a deck */}
@@ -178,14 +234,15 @@ const Dashboard = () => {
                                         onClick={() => handleCardSelect(card)}
                                     >
                                         <img
-                                            id={card.id}
+                                            id={card.id.toString()}
                                             src={card.iconUrls.medium}
                                             alt={card.name}
                                             style={{
                                                 width: "100px",
-                                                height: "100px",
+                                                height: "130px",
                                             }}
                                         />
+                                        <p>{card.id}</p>
                                         <p>{card.name}</p>
                                     </div>
                                 ))}
@@ -215,6 +272,9 @@ const Dashboard = () => {
                                         {selectedCards[index] ? (
                                             <>
                                                 <img
+                                                    id={selectedCards[
+                                                        index
+                                                    ].id.toString()}
                                                     src={
                                                         selectedCards[index]
                                                             .iconUrls.medium
@@ -242,6 +302,7 @@ const Dashboard = () => {
 
                             {/* Create Deck Button */}
                             <button
+                                id="createDeck"
                                 onClick={handleCreateDeck}
                                 disabled={
                                     selectedCards.length !== 8 ||

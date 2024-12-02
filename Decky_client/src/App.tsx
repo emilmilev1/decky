@@ -1,4 +1,3 @@
-import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
@@ -7,6 +6,10 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./context/ProtectedRoute";
+import Decks from "./pages/Decks";
+import AdminRoute from "./context/AdminRoute";
+import NotFoundPage from "./pages/NotFoundPage";
+import AdminPage from "./pages/Admin";
 
 const App = () => (
     <AuthProvider>
@@ -28,6 +31,24 @@ const App = () => (
                         </ProtectedRoute>
                     }
                 />
+                <Route
+                    path="/decks"
+                    element={
+                        <ProtectedRoute>
+                            <Decks />
+                        </ProtectedRoute>
+                    }
+                />
+                <Route
+                    path="/admin"
+                    element={
+                        <AdminRoute>
+                            <AdminPage />
+                        </AdminRoute>
+                    }
+                />
+                {/* Catch-all route for 404 */}
+                <Route path="*" element={<NotFoundPage />} />
             </Routes>
         </Router>
     </AuthProvider>
