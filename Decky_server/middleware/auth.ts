@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
+import prisma from "../prisma/client";
 
 interface JwtPayload {
     userId: number;
@@ -12,13 +13,13 @@ declare module "express-serve-static-core" {
     }
 }
 
-const authMiddleware = (
+const authMiddleware = async (
     req: Request,
     res: Response,
     next: NextFunction
-): void => {
+): Promise<void> => {
     const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
+    if (token === undefined || token === null || token === "") {
         res.status(401).json({ error: "Unauthorized" });
         return;
     }
@@ -28,6 +29,21 @@ const authMiddleware = (
             token,
             process.env.JWT_SECRET!
         ) as JwtPayload;
+
+        const { userId, role } = decoded;
+        if (!userId || !role) {
+            res.status(401).json({ error: "Invalid token" });
+            return;
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+        });
+        if (!user) {
+            res.status(401).json({ error: "User not found. Unauthorized" });
+            return;
+        }
+
         req.user = decoded;
         next();
     } catch (error) {

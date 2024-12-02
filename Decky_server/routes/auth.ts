@@ -58,7 +58,7 @@ router.post(
                 { userId: user.id, role: user.role, username: user.username },
                 process.env.JWT_SECRET!,
                 {
-                    expiresIn: "1h",
+                    expiresIn: "8h",
                 }
             );
 

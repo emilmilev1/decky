@@ -5,43 +5,55 @@ import authMiddleware from "../middleware/auth";
 
 const router = express.Router();
 
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", authMiddleware, async (req, res): Promise<void> => {
     const userId = req.user?.userId;
-    const {
-        search = "",
-        sortBy = "createdAt",
-        sortOrder = "desc",
-        page = 1,
-        pageSize = 10,
-    } = req.query;
+    const role = req.user?.role;
+
+    let decks;
 
     try {
+        if (role === "admin") {
+            decks = await prisma.deck.findMany({
+                include: { cards: true },
+            });
+        } else {
+            decks = await prisma.deck.findMany({
+                where: { userId },
+                include: { cards: true },
+            });
+        }
+
+        if (!decks) {
+            res.status(404).json({ error: "No decks found" });
+            return;
+        }
+
+        const {
+            search = "",
+            sortBy = "createdAt",
+            sortOrder = "desc",
+            page = 1,
+            pageSize = 10,
+        } = req.query;
+
         const skip =
             (parseInt(page as string) - 1) * parseInt(pageSize as string);
 
-        const decks = await prisma.deck.findMany({
+        const filteredDecks = await prisma.deck.findMany({
             where: {
-                userId,
                 OR: [
-                    {
-                        name: {
-                            contains: search as string,
-                        },
-                    },
+                    { name: { contains: search as string } },
                     { description: { contains: search as string } },
                 ],
             },
-            orderBy: {
-                [sortBy as string]: sortOrder,
-            },
+            orderBy: { [sortBy as string]: sortOrder },
             skip: skip,
-            take: pageSize as number,
-            include: { cardsList: true },
+            take: parseInt(pageSize as string),
+            include: { cards: true },
         });
 
         const totalCount = await prisma.deck.count({
             where: {
-                userId,
                 OR: [
                     { name: { contains: search as string } },
                     { description: { contains: search as string } },
@@ -49,7 +61,7 @@ router.get("/", authMiddleware, async (req, res) => {
             },
         });
 
-        res.json({ decks, totalCount });
+        res.json({ decks: filteredDecks, totalCount });
     } catch (error) {
         console.error("Failed to fetch decks:", error);
         res.status(500).json({ error: "Failed to fetch decks" });
@@ -73,7 +85,7 @@ router.post(
     "/",
     authMiddleware,
     async (req: Request, res: Response): Promise<void> => {
-        const { name, description, cards } = req.body;
+        const { name, deckDescription, cards } = req.body;
 
         const userId = req.user?.userId;
         if (!userId) {
@@ -82,16 +94,29 @@ router.post(
         }
 
         try {
+            console.log(name, userId, deckDescription);
             const deck = await prisma.deck.create({
                 data: {
                     name,
-                    cards,
                     userId,
-                    description,
+                    description: deckDescription,
                 },
             });
-            console.log(deck);
-            res.status(201).json(deck);
+
+            const cardData = cards.map((card: any) => ({
+                name: card.name,
+                iconUrl: card.iconUrls,
+                deckId: deck.id,
+                rarity: card.rarity || "Common",
+                cost: card.cost || 0,
+                power: card.power || 0.0,
+            }));
+
+            await prisma.card.createMany({
+                data: cardData,
+            });
+
+            res.status(201).json({ deck, cards: cardData });
         } catch (error) {
             res.status(500).json({ error: "Failed to create deck" });
         }
@@ -103,25 +128,66 @@ router.put(
     authMiddleware,
     async (req: Request, res: Response): Promise<void> => {
         const { id } = req.params;
-        const { name, cards } = req.body;
+        const { name } = req.body;
+
+        const userId = req.user?.userId;
+        if (!userId) {
+            res.status(403).json({ error: "Unauthorized" });
+            return;
+        }
 
         try {
-            const deck = await prisma.deck.update({
+            const deck = await prisma.deck.findUnique({
                 where: { id: Number(id) },
-                data: { name, cards },
             });
-            res.json(deck);
+
+            if (!deck) {
+                res.status(404).json({ error: "Deck not found" });
+                return;
+            }
+
+            if (deck.userId !== userId) {
+                res.status(403).json({
+                    error: "Forbidden: You can only update your own decks",
+                });
+                return;
+            }
+
+            const updatedDeck = await prisma.deck.update({
+                where: { id: Number(id) },
+                data: { name },
+            });
+
+            res.json(updatedDeck);
         } catch (error) {
+            console.error("Failed to update deck:", error);
             res.status(500).json({ error: "Failed to update deck" });
         }
     }
 );
 
-router.delete("/:id", authMiddleware, async (req, res) => {
+router.delete("/:id", authMiddleware, async (req, res): Promise<void> => {
     const { id } = req.params;
 
+    const userId = req.user?.userId;
+    if (!userId) {
+        res.status(403).json({ error: "Unauthorized" });
+        return;
+    }
+
     try {
+        const deckToDelete = await prisma.deck.findUnique({
+            where: { id: Number(id) },
+            include: { cards: true },
+        });
+
+        if (!deckToDelete) {
+            res.status(404).json({ error: "Deck not found" });
+            return;
+        }
+
         await prisma.deck.delete({ where: { id: Number(id) } });
+
         res.status(204).end();
     } catch (error) {
         res.status(500).json({ error: "Failed to delete deck" });

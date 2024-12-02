@@ -49,7 +49,7 @@ model Card {
   power       Float
   createdAt   DateTime @default(now())
   deckId      Int
-  deck        Deck     @relation("DeckCards", fields: [deckId], references: [id])
+  deck        Deck     @relation("DeckCards", fields: [deckId], references: [id], onDelete: Cascade)
 
   @@map("cards")
 }
